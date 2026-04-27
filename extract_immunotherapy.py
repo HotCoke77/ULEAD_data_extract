@@ -7,7 +7,7 @@ IMMUNOTHERAPY_DRUGS = [
     "Relatlimab", "Cemiplimab", "Avelumab", "Ipilimumab"
 ]
 
-def extract_immunotherapy(input_file: str, output_file: str = None):
+def extract_immunotherapy(input_file: str, output_file: str = None, patient_file: str = None):
     input_path = Path(input_file)
     if output_file is None:
         output_file = input_path.stem + "_immunotherapy.xlsx"
@@ -53,6 +53,16 @@ def extract_immunotherapy(input_file: str, output_file: str = None):
         .reset_index(drop=True)
     )
 
+    if patient_file is not None:
+        patient_df = pd.read_csv(patient_file, usecols=["IP_PATIENT_ID", "AGE", "SEX"])
+        sheet2 = sheet2.merge(patient_df, on="IP_PATIENT_ID", how="left")
+        # Move AGE and SEX to appear right after IP_PATIENT_ID
+        cols = sheet2.columns.tolist()
+        for col in ["SEX", "AGE"]:
+            if col in cols:
+                cols.insert(1, cols.pop(cols.index(col)))
+        sheet2 = sheet2[cols]
+
     with pd.ExcelWriter(output_file, engine="openpyxl", datetime_format="YYYY-MM-DD") as writer:
         sheet1.to_excel(writer, sheet_name="Orders", index=False)
         sheet2.to_excel(writer, sheet_name="Summary", index=False)
@@ -65,8 +75,9 @@ def extract_immunotherapy(input_file: str, output_file: str = None):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python extract_immunotherapy.py <input.xlsx> [output.xlsx]")
+        print("Usage: python extract_immunotherapy.py <input.xlsx> [output.xlsx] [patients.csv]")
         sys.exit(1)
     input_file = sys.argv[1]
     output_file = sys.argv[2] if len(sys.argv) > 2 else None
-    extract_immunotherapy(input_file, output_file)
+    patient_file = sys.argv[3] if len(sys.argv) > 3 else None
+    extract_immunotherapy(input_file, output_file, patient_file)
